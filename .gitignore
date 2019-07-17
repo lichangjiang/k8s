@@ -1,0 +1,9 @@
+/.vscode/
+/.work
+/.cache
+/.idea
+/build
+/vendor/
+/vendor.orig/
+.cz-config.js
+*.swp
