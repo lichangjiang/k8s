@@ -21,28 +21,45 @@ func EnvVar(name, value string) corev1.EnvVar {
 	return corev1.EnvVar{Name: name, Value: value}
 }
 
-func GetPodIpWithLabel(clientset kubernetes.Interface, namespace, label string, timeout int) (string, error) {
+func getPodIP(timeout int, podFunc func() (*corev1.Pod, error)) (string, error) {
 	retries := int(timeout / 5)
 	if retries == 0 {
 		retries = 1
 	}
 
 	for i := 0; i < retries; i++ {
-		pods, err := clientset.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: label})
+		pod, err := podFunc()
 		if err != nil {
 			return "", err
 		}
 
-		if len(pods.Items) > 0 {
-			pod := pods.Items[0]
-			ip := pod.Status.PodIP
-			if ip != "" {
-				return ip, err
-			}
+		ip := pod.Status.PodIP
+		if ip != "" {
+			return ip, err
 		}
 		time.Sleep(5 * time.Second)
 	}
-	return "", fmt.Errorf("waiting for pod ip  with label %s timeout", label)
+	return "", fmt.Errorf("waiting for pod ip timeout")
+}
+
+func GetPodIp(clientset kubernetes.Interface, namespace, name string, timeout int) (string, error) {
+	return getPodIP(timeout, func() (*corev1.Pod, error) {
+		return clientset.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
+	})
+}
+
+func GetPodIpWithLabel(clientset kubernetes.Interface, namespace, label string, timeout int) (string, error) {
+	return getPodIP(timeout, func() (*corev1.Pod, error) {
+		pods, err := clientset.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: label})
+		if err != nil {
+			return nil, err
+		}
+		if len(pods.Items) > 1 {
+			return &pods.Items[0], nil
+		} else {
+			return nil, fmt.Errorf("empty pod with label %s in namespace %s", label, namespace)
+		}
+	})
 }
 
 func PodsRunningWithLabel(clientset kubernetes.Interface, namespace, label string) (int, error) {
