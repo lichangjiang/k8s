@@ -59,7 +59,7 @@ func GetPodIpWithLabel(clientset kubernetes.Interface, namespace, label string, 
 		if err != nil {
 			return nil, err
 		}
-		if len(pods.Items) > 1 {
+		if len(pods.Items) > 0 {
 			return &pods.Items[0], nil
 		} else {
 			return nil, nil
