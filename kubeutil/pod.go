@@ -112,7 +112,6 @@ func WaitingForLabeledPodsToRun(k8sClient kubernetes.Interface, label string, na
 		retries = 1
 	}
 
-	klog.Infof("retries time %d", retries)
 	options := metav1.ListOptions{LabelSelector: label}
 	var lastPod corev1.Pod
 	for i := 0; i < retries; i++ {
