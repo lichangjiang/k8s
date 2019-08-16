@@ -8,6 +8,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
@@ -30,12 +31,16 @@ func getPodIP(timeout int, podFunc func() (*corev1.Pod, error)) (string, error) 
 	for i := 0; i < retries; i++ {
 		pod, err := podFunc()
 		if err != nil {
-			return "", err
+			if !errors.IsNotFound(err) {
+				return "", err
+			}
 		}
 
-		ip := pod.Status.PodIP
-		if ip != "" {
-			return ip, err
+		if pod != nil {
+			ip := pod.Status.PodIP
+			if ip != "" {
+				return ip, err
+			}
 		}
 		time.Sleep(5 * time.Second)
 	}
@@ -57,7 +62,7 @@ func GetPodIpWithLabel(clientset kubernetes.Interface, namespace, label string, 
 		if len(pods.Items) > 1 {
 			return &pods.Items[0], nil
 		} else {
-			return nil, fmt.Errorf("empty pod with label %s in namespace %s", label, namespace)
+			return nil, nil
 		}
 	})
 }
