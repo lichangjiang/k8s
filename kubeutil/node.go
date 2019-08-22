@@ -3,6 +3,7 @@ package kubeutil
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -33,7 +34,7 @@ func GetNodeNameFromHostname(k8sClient kubernetes.Interface, hostName string) (s
 	return hostName, fmt.Errorf("node not found")
 }
 
-func GetNodeHostNames(k8sClient kubernetes.Interface) (map[string]string, error) {
+func GetNodeHostNamesWithFilter(k8sClient kubernetes.Interface, filter func(node *corev1.Node) bool) (map[string]string, error) {
 	nodes, err := k8sClient.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -41,7 +42,15 @@ func GetNodeHostNames(k8sClient kubernetes.Interface) (map[string]string, error)
 
 	nodeMap := map[string]string{}
 	for _, node := range nodes.Items {
-		nodeMap[node.Name] = node.Labels[LabelHostname]
+		if filter(&node) {
+			nodeMap[node.Name] = node.Labels[LabelHostname]
+		}
 	}
 	return nodeMap, nil
+}
+
+func GetNodeHostNames(k8sClient kubernetes.Interface) (map[string]string, error) {
+	return GetNodeHostNamesWithFilter(k8sClient, func(_ *corev1.Node) bool {
+		return true
+	})
 }
