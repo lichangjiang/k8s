@@ -5,7 +5,7 @@ import (
 	"time"
 
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apimachinery/pkg/fields"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rt "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -46,14 +46,14 @@ type CustomResource struct {
 }
 
 type Watcher struct {
-	controller CustomController
-	namespace  string
-	client     rest.Interface
-	resource   CustomResource
-
-	indexer  cache.Indexer
-	queue    workqueue.RateLimitingInterface
-	informer cache.Controller
+	controller    CustomController
+	namespace     string
+	client        rest.Interface
+	resource      CustomResource
+	labelSelecter string
+	indexer       cache.Indexer
+	queue         workqueue.RateLimitingInterface
+	informer      cache.Controller
 }
 
 type message struct {
@@ -62,22 +62,26 @@ type message struct {
 	obj      interface{}
 }
 
-func NewWatcher(controller CustomController, resource CustomResource, namespace string, client rest.Interface) *Watcher {
+func NewWatcher(controller CustomController, resource CustomResource, namespace, label string, client rest.Interface) *Watcher {
 	return &Watcher{
-		controller: controller,
-		resource:   resource,
-		namespace:  namespace,
-		client:     client,
+		controller:    controller,
+		resource:      resource,
+		namespace:     namespace,
+		client:        client,
+		labelSelecter: label,
 	}
 }
 
 func (w *Watcher) Watch(objType rt.Object, threadNum int, done <-chan struct{}) {
 
-	listWatch := cache.NewListWatchFromClient(
+	optionsModifier := func(options *metav1.ListOptions) {
+		options.LabelSelector = w.labelSelecter
+	}
+	listWatch := cache.NewFilteredListWatchFromClient(
 		w.client,
 		w.resource.Plural,
 		w.namespace,
-		fields.Everything(),
+		optionsModifier,
 	)
 
 	rateLimitQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
